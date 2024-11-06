@@ -1,0 +1,76 @@
+{
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:typescript"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "testOutline.addSkip",
+        "title": "Add .skip"
+      },
+      {
+        "command": "testOutline.removeSkip",
+        "title": "Remove .skip"
+      },
+      {
+        "command": "testOutline.addOnly",
+        "title": "Add .only"
+      },
+      {
+        "command": "testOutline.removeOnly",
+        "title": "Remove .only"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "testOutline.addSkip",
+          "when": "view == testOutline && viewItem =~ /canSkip/"
+        },
+        {
+          "command": "testOutline.removeSkip",
+          "when": "view == testOutline && viewItem =~ /canRemoveSkip/"
+        },
+        {
+          "command": "testOutline.addOnly",
+          "when": "view == testOutline && viewItem =~ /canOnly/"
+        },
+        {
+          "command": "testOutline.removeOnly",
+          "when": "view == testOutline && viewItem =~ /canRemoveOnly/"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "testOutline",
+          "name": "Test Outline"
+        }
+      ]
+    }
+  },
+  "description": "Outline view for Mocha and Cypress tests",
+  "devDependencies": {
+    "@types/mocha": "^10.0.9",
+    "@types/node": "^16.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.0.0"
+  },
+  "displayName": "Test Outline",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./out/extension.js",
+  "name": "test-outline",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "vscode:prepublish": "npm run compile",
+    "watch": "tsc -watch -p ./"
+  },
+  "version": "0.0.1"
+}
