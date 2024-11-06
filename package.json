@@ -43,6 +43,24 @@
           "command": "testOutline.removeOnly",
           "when": "view == testOutline && viewItem =~ /canRemoveOnly/"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "testOutline.addSkip",
+          "when": "false"
+        },
+        {
+          "command": "testOutline.removeSkip",
+          "when": "false"
+        },
+        {
+          "command": "testOutline.addOnly",
+          "when": "false"
+        },
+        {
+          "command": "testOutline.removeOnly",
+          "when": "false"
+        }
       ]
     },
     "views": {
