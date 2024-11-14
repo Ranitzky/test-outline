@@ -1,11 +1,25 @@
 {
+  "name": "test-outline",
+  "displayName": "Test Outline",
+  "description": "Outline view for Mocha and Cypress tests",
+  "version": "0.0.1",
+  "publisher": "ricowilcke",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "repository": {
+    "url": "https://github.com/Ranitzky/test-outline"
+  },
+  "categories": [
+    "Other"
+  ],
+  "icon": "images/icon.png",
   "activationEvents": [
     "onLanguage:javascript",
     "onLanguage:typescript"
   ],
-  "categories": [
-    "Other"
-  ],
+  "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
@@ -72,23 +86,17 @@
       ]
     }
   },
-  "description": "Outline view for Mocha and Cypress tests",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "vscode:prepublish": "npm run compile",
+    "watch": "tsc -watch -p ./",
+    "build": "vsce package",
+    "deploy": "vsce publish"
+  },
   "devDependencies": {
     "@types/mocha": "^10.0.9",
     "@types/node": "^16.0.0",
     "@types/vscode": "^1.85.0",
     "typescript": "^5.0.0"
-  },
-  "displayName": "Test Outline",
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "main": "./out/extension.js",
-  "name": "test-outline",
-  "scripts": {
-    "compile": "tsc -p ./",
-    "vscode:prepublish": "npm run compile",
-    "watch": "tsc -watch -p ./"
-  },
-  "version": "0.0.1"
+  }
 }
