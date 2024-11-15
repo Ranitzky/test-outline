@@ -1,8 +1,8 @@
-# test-outline for Mocha and Cypress
+# test-outline for JS Tests
 
 Outline for Cypress, Mocha and Jest Tests.
 
-[![Test Outline](images/animation.gif)]
+![Test Outline](images/animation.gif)
 
 ## Features
 
