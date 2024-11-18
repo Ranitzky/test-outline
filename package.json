@@ -2,7 +2,7 @@
   "name": "test-outline",
   "displayName": "Test Outline",
   "description": "Outline view for Mocha and Cypress tests",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "ricowilcke",
   "license": "MIT",
   "engines": {
