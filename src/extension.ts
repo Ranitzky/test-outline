@@ -105,20 +105,30 @@ class TestOutlineProvider implements vscode.TreeDataProvider<TestItem> {
       return undefined;
     };
 
+    // Helper function to find the test name in subsequent lines
+    const findTestName = (startIndex: number): string | null => {
+      for (let i = startIndex; i < Math.min(startIndex + 5, lines.length); i++) {
+        const match = lines[i].match(/['"`](.*?)['"`]/);
+        if (match) {
+          return match[1];
+        }
+      }
+      return null;
+    };
+
     lines.forEach((line, index) => {
       const indentation = line.search(/\S/);
       const level = Math.floor(indentation / 2);
 
       // Updated regex patterns to capture modifiers for all block types
-      const describeMatch = line.match(
-        /\b(describe)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/
-      );
-      const contextMatch = line.match(
-        /\b(context)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/
-      );
-      const itMatch = line.match(
-        /(?<!cy\.)\b(it)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/
-      );
+      const describeMatch = line.match(/\b(describe)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/);
+      const contextMatch = line.match(/\b(context)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/);
+      const itMatch = line.match(/(?<!cy\.)\b(it)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/);
+
+      // Check for test blocks without the label on the same line (allows comments after the opening paren)
+      const describeNoLabel = line.match(/\b(describe)(\.skip|\.only)?\s*\(/);
+      const contextNoLabel = line.match(/\b(context)(\.skip|\.only)?\s*\(/);
+      const itNoLabel = line.match(/(?<!cy\.)\b(it)(\.skip|\.only)?\s*\(/);
 
       let node: TestNode | undefined;
 
@@ -156,14 +166,54 @@ class TestOutlineProvider implements vscode.TreeDataProvider<TestItem> {
         if (itMatch[2] === '.only') {
           this.hasOnlyTests = true;
         }
+      } else if (describeNoLabel && !line.match(/['"`]/)) {
+        const name = findTestName(index + 1);
+        if (name) {
+          node = {
+            name: name,
+            type: 'describe',
+            line: index + 1,
+            modifier: describeNoLabel[2]?.slice(1) as 'skip' | 'only' | undefined,
+            children: [],
+            level: level,
+            lineText: line,
+          };
+        }
+      } else if (contextNoLabel && !line.match(/['"`]/)) {
+        const name = findTestName(index + 1);
+        if (name) {
+          node = {
+            name: name,
+            type: 'context',
+            line: index + 1,
+            modifier: contextNoLabel[2]?.slice(1) as 'skip' | 'only' | undefined,
+            children: [],
+            level: level,
+            lineText: line,
+          };
+        }
+      } else if (itNoLabel && !line.match(/['"`]/)) {
+        const name = findTestName(index + 1);
+        if (name) {
+          node = {
+            name: name,
+            type: 'it',
+            line: index + 1,
+            modifier: itNoLabel[2]?.slice(1) as 'skip' | 'only' | undefined,
+            children: [],
+            level: level,
+            lineText: line,
+          };
+
+          if (itNoLabel[2] === '.only') {
+            this.hasOnlyTests = true;
+          }
+        }
       }
 
       if (node) {
         // Remove items from stack that are at same or higher level
-        while (
-          stack.length > 0 &&
-          stack[stack.length - 1].level >= node.level
-        ) {
+        while (stack.length > 0 && stack[stack.length - 1].level >= node.level) {
           stack.pop();
         }
 
