@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 
+const MAX_LINES_TO_SEARCH = 5;
+
 interface TestNode {
   name: string;
   type: 'describe' | 'context' | 'it';
@@ -71,12 +73,10 @@ class TestItem extends vscode.TreeItem {
 }
 
 class TestOutlineProvider implements vscode.TreeDataProvider<TestItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<
-    TestItem | undefined | null | void
-  > = new vscode.EventEmitter<TestItem | undefined | null | void>();
-  readonly onDidChangeTreeData: vscode.Event<
-    TestItem | undefined | null | void
-  > = this._onDidChangeTreeData.event;
+  private _onDidChangeTreeData: vscode.EventEmitter<TestItem | undefined | null | void> =
+    new vscode.EventEmitter<TestItem | undefined | null | void>();
+  readonly onDidChangeTreeData: vscode.Event<TestItem | undefined | null | void> =
+    this._onDidChangeTreeData.event;
 
   private hasOnlyTests: boolean = false;
 
@@ -105,65 +105,81 @@ class TestOutlineProvider implements vscode.TreeDataProvider<TestItem> {
       return undefined;
     };
 
+    // Helper function to find the test name in subsequent lines
+    const findTestName = (startIndex: number): string | null => {
+      for (let i = startIndex; i < Math.min(startIndex + MAX_LINES_TO_SEARCH, lines.length); i++) {
+        const match = lines[i].match(/['"`](.*?)['"`]/);
+        if (match) {
+          return match[1];
+        }
+      }
+      return null;
+    };
+
     lines.forEach((line, index) => {
       const indentation = line.search(/\S/);
       const level = Math.floor(indentation / 2);
 
       // Updated regex patterns to capture modifiers for all block types
-      const describeMatch = line.match(
-        /\b(describe)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/
-      );
-      const contextMatch = line.match(
-        /\b(context)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/
-      );
-      const itMatch = line.match(
-        /(?<!cy\.)\b(it)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/
-      );
+      const describeMatch = line.match(/\b(describe)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/);
+      const contextMatch = line.match(/\b(context)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/);
+      const itMatch = line.match(/(?<!cy\.)\b(it)(\.skip|\.only)?\s*\(\s*['"`](.*?)['"`]/);
+
+      // Check for test blocks without the label on the same line (allows comments after the opening paren)
+      const describeNoLabel = line.match(/\b(describe)(\.skip|\.only)?\s*\(/);
+      const contextNoLabel = line.match(/\b(context)(\.skip|\.only)?\s*\(/);
+      const itNoLabel = line.match(/(?<!cy\.)\b(it)(\.skip|\.only)?\s*\(/);
+
+      const createNode = (
+        type: TestNode['type'],
+        modifierMatch: string | undefined,
+        name: string
+      ): TestNode => {
+        const modifier = modifierMatch?.slice(1) as 'skip' | 'only' | undefined;
+
+        if (type === 'it' && modifier === 'only') {
+          this.hasOnlyTests = true;
+        }
+
+        return {
+          name,
+          type,
+          line: index + 1,
+          modifier,
+          children: [],
+          level,
+          lineText: line,
+        };
+      };
 
       let node: TestNode | undefined;
 
       if (describeMatch) {
-        node = {
-          name: describeMatch[3],
-          type: 'describe',
-          line: index + 1,
-          modifier: describeMatch[2]?.slice(1) as 'skip' | 'only' | undefined,
-          children: [],
-          level: level,
-          lineText: line,
-        };
+        node = createNode('describe', describeMatch[2], describeMatch[3]);
       } else if (contextMatch) {
-        node = {
-          name: contextMatch[3],
-          type: 'context',
-          line: index + 1,
-          modifier: contextMatch[2]?.slice(1) as 'skip' | 'only' | undefined,
-          children: [],
-          level: level,
-          lineText: line,
-        };
+        node = createNode('context', contextMatch[2], contextMatch[3]);
       } else if (itMatch) {
-        node = {
-          name: itMatch[3],
-          type: 'it',
-          line: index + 1,
-          modifier: itMatch[2]?.slice(1) as 'skip' | 'only' | undefined,
-          children: [],
-          level: level,
-          lineText: line,
-        };
-
-        if (itMatch[2] === '.only') {
-          this.hasOnlyTests = true;
+        node = createNode('it', itMatch[2], itMatch[3]);
+      } else if (describeNoLabel && !line.match(/['"`]/)) {
+        const name = findTestName(index + 1);
+        if (name) {
+          node = createNode('describe', describeNoLabel[2], name);
+        }
+      } else if (contextNoLabel && !line.match(/['"`]/)) {
+        const name = findTestName(index + 1);
+        if (name) {
+          node = createNode('context', contextNoLabel[2], name);
+        }
+      } else if (itNoLabel && !line.match(/['"`]/)) {
+        const name = findTestName(index + 1);
+        if (name) {
+          node = createNode('it', itNoLabel[2], name);
         }
       }
 
       if (node) {
         // Remove items from stack that are at same or higher level
-        while (
-          stack.length > 0 &&
-          stack[stack.length - 1].level >= node.level
-        ) {
+        while (stack.length > 0 && stack[stack.length - 1].level >= node.level) {
           stack.pop();
         }
 
@@ -286,20 +302,14 @@ export function activate(context: vscode.ExtensionContext) {
       const currentModifier = match[2];
 
       // Remove any existing modifier first
-      newText = line.text.replace(
-        /\b(describe|context|it)(\.skip|\.only)\b/,
-        '$1'
-      );
+      newText = line.text.replace(/\b(describe|context|it)(\.skip|\.only)\b/, '$1');
 
       // Then add the new modifier if we're not removing one
       if (modifier.startsWith('add')) {
         const newModifier = modifier === 'addSkip' ? '.skip' : '.only';
         // Only add if it's different from the current modifier
         if (currentModifier !== newModifier) {
-          newText = newText.replace(
-            new RegExp(`\\b(${testType})\\b`),
-            `${testType}${newModifier}`
-          );
+          newText = newText.replace(new RegExp(`\\b(${testType})\\b`), `${testType}${newModifier}`);
         }
       }
 
@@ -320,20 +330,17 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register jump to line command
   context.subscriptions.push(
-    vscode.commands.registerCommand(
-      'testOutline.jumpToLine',
-      (node: TestNode) => {
-        const editor = vscode.window.activeTextEditor;
-        if (editor && node.line > 0) {
-          const position = new vscode.Position(node.line - 1, 0);
-          editor.selection = new vscode.Selection(position, position);
-          editor.revealRange(
-            new vscode.Range(position, position),
-            vscode.TextEditorRevealType.InCenter
-          );
-        }
+    vscode.commands.registerCommand('testOutline.jumpToLine', (node: TestNode) => {
+      const editor = vscode.window.activeTextEditor;
+      if (editor && node.line > 0) {
+        const position = new vscode.Position(node.line - 1, 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(
+          new vscode.Range(position, position),
+          vscode.TextEditorRevealType.InCenter
+        );
       }
-    )
+    })
   );
 
   // Register commands with proper argument passing
