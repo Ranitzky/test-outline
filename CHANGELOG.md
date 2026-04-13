@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.2.0 - April, 13th 2026
+
+- Cursor sync: moving the cursor in the editor now automatically highlights the corresponding node in the Test Outline (and vice versa)
+
 ## 0.1.0 - April, 13th 2026
 
 - Added support for `suite` and `test` as aliases for `describe` and `it`
