@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Mocha-specific keywords: suite/specify and x-prefix variants
 // The existing sample.test.ts covers describe/context/it basics.
 

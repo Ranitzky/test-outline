@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { test, expect } from '@playwright/test';
 
 // test.describe(...) is parsed as a describe-node (word boundary before 'describe')

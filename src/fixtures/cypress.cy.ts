@@ -1,3 +1,4 @@
+// @ts-nocheck
 describe('login page', () => {
   context('when user is not logged in', () => {
     it('shows the login form', () => {

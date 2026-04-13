@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { add, subtract, multiply } from './math';
 
 describe('math utils', () => {
