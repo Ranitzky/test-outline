@@ -1,4 +1,7 @@
 {
+	"exclude": [
+		"src/fixtures"
+	],
 	"compilerOptions": {
 		"module": "Node16",
 		"target": "ES2022",

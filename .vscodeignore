@@ -1,0 +1,14 @@
+.agents/**
+.claude/**
+.github/**
+.gitignore
+.kilocode/**
+eslint.config.mjs
+node_modules/**
+out/fixtures/**
+out/test/**
+package-lock.json
+skills-lock.json
+src/**
+test-outline-*.vsix
+tsconfig.json
