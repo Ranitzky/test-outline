@@ -90,6 +90,7 @@
     "compile": "tsc -p ./",
     "vscode:prepublish": "npm run compile",
     "watch": "tsc -watch -p ./",
+    "test": "npm run compile && mocha out/test/parser.test.js out/test/modification.test.js",
     "build": "vsce package",
     "deploy": "vsce publish"
   },
@@ -97,6 +98,7 @@
     "@types/mocha": "^10.0.9",
     "@types/node": "^16.0.0",
     "@types/vscode": "^1.85.0",
+    "mocha": "^11.7.5",
     "typescript": "^5.0.0"
   }
 }
