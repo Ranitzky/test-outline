@@ -8,6 +8,7 @@ class TestItem extends vscode.TreeItem {
     private readonly hasOnlyTests: boolean
   ) {
     super(node.name, collapsibleState);
+    this.id = String(node.line);
 
     // Set icons based on type
     switch (node.type) {
@@ -68,6 +69,8 @@ class TestOutlineProvider implements vscode.TreeDataProvider<TestItem> {
     this._onDidChangeTreeData.event;
 
   private hasOnlyTests: boolean = false;
+  private nodeParentMap = new Map<TestNode, TestNode | undefined>();
+  private nodeMapDocUri: string | undefined;
 
   constructor(private context: vscode.ExtensionContext) {}
 
@@ -79,9 +82,48 @@ class TestOutlineProvider implements vscode.TreeDataProvider<TestItem> {
     return element;
   }
 
-  private parseTestFile(text: string): TestNode[] {
+  getParent(element: TestItem): vscode.ProviderResult<TestItem> {
+    const parentNode = this.nodeParentMap.get(element.node);
+    if (!parentNode) return undefined;
+    return new TestItem(
+      parentNode,
+      vscode.TreeItemCollapsibleState.Expanded,
+      this.hasOnlyTests
+    );
+  }
+
+  /** Find the deepest node whose line number is ≤ cursorLine+1 (cursor is 0-based). */
+  findItemAtLine(cursorLine: number, docUri: string): TestItem | undefined {
+    if (this.nodeMapDocUri !== docUri) return undefined;
+    let best: TestNode | undefined;
+    for (const node of this.nodeParentMap.keys()) {
+      if (node.line <= cursorLine + 1 && (!best || node.line > best.line)) {
+        best = node;
+      }
+    }
+    if (!best) return undefined;
+    return new TestItem(
+      best,
+      best.children.length > 0
+        ? vscode.TreeItemCollapsibleState.Expanded
+        : vscode.TreeItemCollapsibleState.None,
+      this.hasOnlyTests
+    );
+  }
+
+  private buildParentMap(nodes: TestNode[], parent: TestNode | undefined): void {
+    for (const node of nodes) {
+      this.nodeParentMap.set(node, parent);
+      this.buildParentMap(node.children, node);
+    }
+  }
+
+  private parseTestFile(text: string, docUri: string): TestNode[] {
     const result = parseTestFile(text);
     this.hasOnlyTests = result.hasOnlyTests;
+    this.nodeParentMap.clear();
+    this.nodeMapDocUri = docUri;
+    this.buildParentMap(result.nodes, undefined);
     return result.nodes;
   }
 
@@ -98,7 +140,7 @@ class TestOutlineProvider implements vscode.TreeDataProvider<TestItem> {
 
     if (!element) {
       const text = document.getText();
-      const nodes = this.parseTestFile(text);
+      const nodes = this.parseTestFile(text, document.uri.toString());
 
       return nodes.map(
         (node) =>
@@ -144,19 +186,32 @@ class TestOutlineProvider implements vscode.TreeDataProvider<TestItem> {
 
 export function activate(context: vscode.ExtensionContext) {
   const testOutlineProvider = new TestOutlineProvider(context);
-  vscode.window.registerTreeDataProvider('testOutline', testOutlineProvider);
+
+  const treeView = vscode.window.createTreeView('testOutline', {
+    treeDataProvider: testOutlineProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(treeView);
+
+  // Track when we are programmatically moving the cursor (outline → editor)
+  // to avoid a reveal loop (editor selection change → reveal → no-op, but still noisy).
+  let suppressSelectionSync = false;
 
   // Register jump to line command
   context.subscriptions.push(
     vscode.commands.registerCommand('testOutline.jumpToLine', (node: TestNode) => {
       const editor = vscode.window.activeTextEditor;
       if (editor && node.line > 0) {
+        suppressSelectionSync = true;
         const position = new vscode.Position(node.line - 1, 0);
         editor.selection = new vscode.Selection(position, position);
         editor.revealRange(
           new vscode.Range(position, position),
           vscode.TextEditorRevealType.InCenter
         );
+        setTimeout(() => {
+          suppressSelectionSync = false;
+        }, 300);
       }
     })
   );
@@ -204,6 +259,24 @@ export function activate(context: vscode.ExtensionContext) {
       testOutlineProvider.refresh();
     }
   });
+
+  // Cursor sync: editor selection → outline highlight (debounced)
+  let revealTimeout: ReturnType<typeof setTimeout> | undefined;
+  context.subscriptions.push(
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      if (suppressSelectionSync) return;
+      if (!event.textEditor.document.fileName.match(/\.(test|spec|cy)\.(js|ts)$/)) return;
+
+      if (revealTimeout) clearTimeout(revealTimeout);
+      revealTimeout = setTimeout(() => {
+        const cursorLine = event.textEditor.selection.active.line;
+        const item = testOutlineProvider.findItemAtLine(cursorLine, event.textEditor.document.uri.toString());
+        if (item) {
+          treeView.reveal(item, { select: true, focus: false }).then(undefined, () => {});
+        }
+      }, 150);
+    })
+  );
 }
 
 export function deactivate() {}
